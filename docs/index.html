@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORION-9 Mission Control</title>
+    
+    <!-- Tailwind CSS v4 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js v4 + plugins -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    
+    <!-- Leaflet.js -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        :root {
+            --neon-cyan: #00f0ff;
+            --neon-green: #39ff14;
+            --warning-amber: #ffaa00;
+            --deep-space: #030307;
+            --panel-bg: rgba(10, 15, 30, 0.6);
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #030307 0%, #0a0015 50%, #050510 100%);
+            color: #e0e0e0;
+            overflow: hidden;
+            margin: 0;
+            min-height: 100vh;
+        }
+        
+        /* Starfield Background */
+        #starfield {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite ease-in-out;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        
+        /* Nebula Effect */
+        .nebula {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.15;
+            z-index: -1;
+            animation: nebulaMove 30s infinite ease-in-out;
+        }
+        
+        .nebula-1 {
+            background: radial-gradient(circle, #00f0ff 0%, transparent 70%);
+            top: 10%;
+            right: 20%;
+        }
+        
+        .nebula-2 {
+            background: radial-gradient(circle, #39ff14 0%, transparent 70%);
+            bottom: 20%;
+            left: 10%;
+            animation-delay: -10s;
+        }
+        
+        .nebula-3 {
+            background: radial-gradient(circle, #ff00ff 0%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            animation-delay: -20s;
+        }
+        
+        @keyframes nebulaMove {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(30px, -20px) scale(1.1); }
+            50% { transform: translate(-20px, 30px) scale(0.95); }
+            75% { transform: translate(20px, 20px) scale(1.05); }
+        }
+        
+        /* Glassmorphism Panels */
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 240, 255, 0.18);
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+        
+        .glass-panel:hover {
+            box-shadow: 0 0 40px rgba(0, 240, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border-color: rgba(0, 240, 255, 0.3);
+        }
+        
+        /* Neon Glow Effects */
+        .neon-cyan {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+        }
+        
+        .neon-green {
+            color: var(--neon-green);
+            text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
+        }
+        
+        .neon-amber {
+            color: var(--warning-amber);
+            text-shadow: 0 0 10px rgba(255, 170, 0, 0.5);
+        }
+        
+        .neon-border-cyan {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.3), inset 0 0 20px rgba(0, 240, 255, 0.05);
+        }
+        
+        /* Scanlines */
+        .scanlines::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 240, 255, 0.03) 2px,
+                rgba(0, 240, 255, 0.03) 4px
+            );
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        /* CRT Flicker */
+        @keyframes crtFlicker {
+            0%, 100% { opacity: 1; }
+            92% { opacity: 1; }
+            93% { opacity: 0.95; }
+            94% { opacity: 1; }
+        }
+        
+        .crt-flicker {
+            animation: crtFlicker 4s infinite;
+        }
+        
+        /* Connection Pulse */
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.7); }
+            50% { box-shadow: 0 0 0 8px rgba(57, 255, 20, 0); }
+        }
+        
+        .connection-pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        /* Loader */
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #030307;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+        }
+        
+        .loader-ring {
+            width: 120px;
+            height: 120px;
+            border: 3px solid transparent;
+            border-top-color: var(--neon-cyan);
+            border-radius: 50%;
+            animation: spin 1.5s linear infinite;
+        }
+        
+        .loader-ring-inner {
+            width: 100px;
+            height: 100px;
+            border: 3px solid transparent;
+            border-bottom-color: var(--neon-green);
+            border-radius: 50%;
+            animation: spin 1s linear infinite reverse;
+            position: absolute;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 240, 255, 0.3);
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 240, 255, 0.5);
+        }
+        
+        /* Button Hover Effects */
+        .cmd-btn {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .cmd-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(0, 240, 255, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .cmd-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .cmd-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.4);
+        }
+        
+        /* Terminal */
+        .terminal {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+        
+        .terminal-line {
+            padding: 2px 0;
+            border-left: 2px solid transparent;
+            padding-left: 8px;
+            margin: 2px 0;
+        }
+        
+        .terminal-line:hover {
+            border-left-color: var(--neon-cyan);
+            background: rgba(0, 240, 255, 0.05);
+        }
+        
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .toast.show {
+            transform: translateX(0);
+        }
+        
+        /* Modal */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .modal-backdrop.show {
+            display: flex;
+        }
+        
+        .modal-content {
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        /* Leaflet Customization */
+        .leaflet-container {
+            background: #050510 !important;
+        }
+        
+        .leaflet-tile {
+            filter: invert(100%) hue-rotate(180deg) brightness(0.3) contrast(1.2);
+        }
+        
+        /* Gauge Animation */
+        .gauge-needle {
+            transform-origin: center;
+            transition: transform 0.5s ease-out;
+        }
+        
+        /* System Status LED */
+        .status-led {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-led.green {
+            background: var(--neon-green);
+            box-shadow: 0 0 10px var(--neon-green);
+        }
+        
+        .status-led.yellow {
+            background: var(--warning-amber);
+            box-shadow: 0 0 10px var(--warning-amber);
+        }
+        
+        .status-led.red {
+            background: #ff3333;
+            box-shadow: 0 0 10px #ff3333;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sidebar-left {
+                position: fixed;
+                left: -280px;
+                top: 60px;
+                bottom: 60px;
+                z-index: 100;
+                transition: left 0.3s ease;
+            }
+            
+            .sidebar-left.open {
+                left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loader -->
+    <div id="loader">
+        <div class="relative">
+            <div class="loader-ring"></div>
+            <div class="loader-ring-inner"></div>
+        </div>
+        <p class="mt-8 text-cyan-400 tracking-widest text-sm">INITIALIZING ORION-9 SYSTEMS...</p>
+    </div>
+    
+    <!-- Background Effects -->
+    <div id="starfield"></div>
+    <div class="nebula nebula-1"></div>
+    <div class="nebula nebula-2"></div>
+    <div class="nebula nebula-3"></div>
+    
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+    
+    <!-- Modal -->
+    <div id="modal" class="modal-backdrop">
+        <div class="modal-content glass-panel p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-title" class="text-xl neon-cyan font-semibold">Detail View</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="modal-body" class="text-gray-300">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Layout -->
+    <div class="flex flex-col h-screen">
+        <!-- Top HUD Bar -->
+        <header class="h-16 glass-panel mx-4 mt-4 px-6 flex items-center justify-between">
+            <div class="flex items-center gap-6">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-satellite text-2xl neon-cyan"></i>
+                    <div>
+                        <h1 class="text-sm font-bold tracking-wider text-gray-300">MISSION</h1>
+                        <p class="text-lg font-bold neon-cyan">ORION-9 Mars Transfer</p>
+                    </div>
+                </div>
+                <div class="h-8 w-px bg-cyan-500/30"></div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-green-400 connection-pulse"></div>
+                    <span class="neon-green text-sm font-medium">LOCKED</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-8">
+                <div class="text-center">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider">UTC Time</p>
+                    <p id="utc-clock" class="text-lg font-mono neon-cyan font-semibold">--:--:--</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider">Signal Delay</p>
+                    <p id="signal-delay" class="text-lg font-mono neon-amber font-semibold">14m 22s</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider">Power</p>
+                    <p class="text-lg font-mono neon-green font-semibold">98.4%</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs text-gray-400 uppercase tracking-wider">Data Rate</p>
+                    <p class="text-lg font-mono neon-cyan font-semibold">2.4 kbps</p>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Content Area -->
+        <div class="flex-1 flex gap-4 p-4 overflow-hidden">
+            <!-- Left Sidebar -->
+            <aside class="sidebar-left w-64 glass-panel flex flex-col">
+                <div class="p-4 border-b border-cyan-500/20">
+                    <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider">Navigation</h2>
+                </div>
+                <nav class="flex-1 p-2">
+                    <button class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-cyan-500/10 transition flex items-center gap-3 text-cyan-400 border-l-2 border-cyan-400">
+                        <i class="fas fa-globe"></i>
+                        <span>Overview</span>
+                    </button>
+                    <button class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-cyan-500/10 transition flex items-center gap-3 text-gray-400">
+                        <i class="fas fa-wave-square"></i>
+                        <span>Telemetry</span>
+                    </button>
+                    <button class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-cyan-500/10 transition flex items-center gap-3 text-gray-400">
+                        <i class="fas fa-broadcast-tower"></i>
+                        <span>Comms</span>
+                    </button>
+                    <button class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-cyan-500/10 transition flex items-center gap-3 text-gray-400">
+                        <i class="fas fa-rocket"></i>
+                        <span>Propulsion</span>
+                    </button>
+                    <button class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-cyan-500/10 transition flex items-center gap-3 text-gray-400">
+                        <i class="fas fa-heartbeat"></i>
+                        <span>Life Support</span>
+                    </button>
+                    <button class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-cyan-500/10 transition flex items-center gap-3 text-gray-400">
+                        <i class="fas fa-terminal"></i>
+                        <span>Commands</span>
+                    </button>
+                    <button class="nav-item w-full text-left px-4 py-3 rounded-lg hover:bg-cyan-500/10 transition flex items-center gap-3 text-gray-400">
+                        <i class="fas fa-list-alt"></i>
+                        <span>Event Log</span>
+                    </button>
+                </nav>
+                <div class="p-4 border-t border-cyan-500/20">
+                    <div class="text-xs text-gray-500 text-center">
+                        <p>ORION-9 v2.4.1</p>
+                        <p class="mt-1">Build 2026.03.19</p>
+                    </div>
+                </div>
+            </aside>
+            
+            <!-- Central Viewport -->
+            <main class="flex-1 flex flex-col gap-4 min-w-0">
+                <!-- Globe View -->
+                <div class="h-[55%] glass-panel relative scanlines overflow-hidden">
+                    <div class="absolute top-4 left-4 z-10">
+                        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider">Transfer Orbit</h3>
+                    </div>
+                    <div id="map" class="w-full h-full"></div>
+                    
+                    <!-- Overlay Controls -->
+                    <div class="absolute bottom-4 right-4 z-10 flex gap-2">
+                        <button class="glass-panel px-3 py-2 text-xs neon-cyan hover:bg-cyan-500/20 transition" onclick="showToast('Orbit view updated', 'info')">
+                            <i class="fas fa-sync-alt mr-2"></i>Refresh
+                        </button>
+                        <button class="glass-panel px-3 py-2 text-xs neon-cyan hover:bg-cyan-500/20 transition" onclick="openModal('Orbit Details', 'Current transfer trajectory from Earth to Mars. Hohmann transfer window initiated. Estimated arrival: Sol 487.')">
+                            <i class="fas fa-info-circle mr-2"></i>Details
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Gauges and Charts -->
+                <div class="h-[43%] flex gap-4">
+                    <!-- Gauges -->
+                    <div class="w-1/2 glass-panel p-4 scanlines">
+                        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Telemetry Gauges</h3>
+                        <div class="grid grid-cols-2 gap-4 h-[calc(100%-2rem)]">
+                            <div class="gauge-container cursor-pointer" onclick="openModal('Fuel Level', 'Current propellant reserves: 78.3%. Remaining delta-v capacity: 2.4 km/s. Primary tanks: 82% full. Reserve tanks: 64% full.')">
+                                <canvas id="gauge-fuel"></canvas>
+                                <p class="text-center text-xs text-gray-400 mt-2">Fuel %</p>
+                            </div>
+                            <div class="gauge-container cursor-pointer" onclick="openModal('Velocity', 'Current velocity: 28.4 km/s relative to Sun. Earth departure velocity: 11.6 km/s. Mars arrival velocity (planned): 21.2 km/s.')">
+                                <canvas id="gauge-velocity"></canvas>
+                                <p class="text-center text-xs text-gray-400 mt-2">Velocity (km/s)</p>
+                            </div>
+                            <div class="gauge-container cursor-pointer" onclick="openModal('Distance', 'Current distance from Earth: 1.847 AU. Distance to Mars: 0.623 AU. Total mission distance: 2.47 AU.')">
+                                <canvas id="gauge-distance"></canvas>
+                                <p class="text-center text-xs text-gray-400 mt-2">Distance (AU)</p>
+                            </div>
+                            <div class="gauge-container cursor-pointer" onclick="openModal('Core Temperature', 'Reactor core temperature: 342°C. Operating within normal parameters. Coolant flow: nominal. Thermal management: active.')">
+                                <canvas id="gauge-temp"></canvas>
+                                <p class="text-center text-xs text-gray-400 mt-2">Core Temp (°C)</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Charts -->
+                    <div class="w-1/2 glass-panel p-4 scanlines flex flex-col">
+                        <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Real-Time Systems</h3>
+                        <div class="flex-1 flex flex-col gap-2">
+                            <div class="flex-1 min-h-0">
+                                <canvas id="chart-signal"></canvas>
+                            </div>
+                            <div class="flex-1 min-h-0">
+                                <canvas id="chart-solar"></canvas>
+                            </div>
+                            <div class="flex-1 min-h-0">
+                                <canvas id="chart-battery"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+            
+            <!-- Right Sidebar -->
+            <aside class="w-72 flex flex-col gap-4">
+                <!-- System Health Grid -->
+                <div class="glass-panel p-4">
+                    <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">System Health</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="system-status p-2 rounded bg-black/30 border border-cyan-500/20 hover:border-cyan-500/50 transition cursor-pointer" onclick="openModal('Attitude Control System', 'ACS Status: NOMINAL. All 12 reaction wheels operational. Star trackers: locked. Gyroscopes: calibrated. Current attitude: stable.')">
+                            <div class="flex items-center gap-2">
+                                <span class="status-led green"></span>
+                                <span class="text-xs">ACS</span>
+                            </div>
+                        </div>
+                        <div class="system-status p-2 rounded bg-black/30 border border-cyan-500/20 hover:border-cyan-500/50 transition cursor-pointer" onclick="openModal('Electrical Power System', 'EPS Status: NOMINAL. Solar array output: 4.2 kW. Battery charge: 98%. Power distribution: nominal. All bus voltages within spec.')">
+                            <div class="flex items-center gap-2">
+                                <span class="status-led green"></span>
+                                <span class="text-xs">EPS</span>
+                            </div>
+                        </div>
+                        <div class="system-status p-2 rounded bg-black/30 border border-cyan-500/20 hover:border-cyan-500/50 transition cursor-pointer" onclick="openModal('Thermal Control', 'Thermal Status: NOMINAL. Core temp: 342°C. Radiator efficiency: 94%. Heater circuits: standby. All zones within operating limits.')">
+                            <div class="flex items-center gap-2">
+                                <span class="status-led green"></span>
+                                <span class="text-xs">Thermal</span>
+                            </div>
+                        </div>
+                        <div class="system-status p-2 rounded bg-black/30 border border-cyan-500/20 hover:border-cyan-500/50 transition cursor-pointer" onclick="openModal('Communications', 'Comm Status: NOMINAL. High-gain antenna: tracking Earth. Signal strength: -118 dBm. Data rate: 2.4 kbps. Uplink: clear.')">
+                            <div class="flex items-center gap-2">
+                                <span class="status-led green"></span>
+                                <span class="text-xs">Comm</span>
+                            </div>
+                        </div>
+                        <div class="system-status p-2 rounded bg-black/30 border border-cyan-500/20 hover:border-cyan-500/50 transition cursor-pointer" onclick="openModal('Propulsion', 'Propulsion Status: STANDBY. Main engine: ready. Thrusters: nominal. Fuel pressure: 2840 psi. No burns scheduled.')">
+                            <div class="flex items-center gap-2">
+                                <span class="status-led green"></span>
+                                <span class="text-xs">Prop</span>
+                            </div>
+                        </div>
+                        <div class="system-status p-2 rounded bg-black/30 border border-amber-500/50 hover:border-amber-500/80 transition cursor-pointer" onclick="openModal('Guidance & Navigation', 'GNC Status: ATTENTION. Star tracker B showing intermittent errors. Recommend scheduled maintenance check. Primary navigation: nominal.')">
+                            <div class="flex items-center gap-2">
+                                <span class="status-led yellow"></span>
+                                <span class="text-xs">GNC</span>
+                            </div>
+                        </div>
+                        <div class="system-status p-2 rounded bg-black/30 border border-cyan-500/20 hover:border-cyan-500/50 transition cursor-pointer" onclick="openModal('Life Support', 'Life Support Status: NOMINAL. Cabin pressure: 101.3 kPa. O2 levels: 21.4%. CO2 scrubbers: 94% capacity. Temperature: 22°C.')">
+                            <div class="flex items-center gap-2">
+                                <span class="status-led green"></span>
+                                <span class="text-xs">Life Sup</span>
+                            </div>
+                        </div>
+                        <div class="system-status p-2 rounded bg-black/30 border border-cyan-500/20 hover:border-cyan-500/50 transition cursor-pointer" onclick="openModal('Payload', 'Payload Status: NOMINAL. All science instruments powered. Data storage: 67% full. Observation schedule: on track.')">
+                            <div class="flex items-center gap-2">
+                                <span class="status-led green"></span>
+                                <span class="text-xs">Payload</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Event Log -->
+                <div class="glass-panel p-4 flex-1 flex flex-col min-h-0">
+                    <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Event Log</h3>
+                    <div id="event-log" class="terminal flex-1 overflow-y-auto text-xs">
+                        <!-- Events will be populated by JS -->
+                    </div>
+                </div>
+            </aside>
+        </div>
+        
+        <!-- Bottom Command Bar -->
+        <div class="h-20 glass-panel mx-4 mb-4 px-6 flex items-center gap-4">
+            <div class="flex-1 flex items-center gap-3">
+                <i class="fas fa-terminal text-cyan-400"></i>
+                <input 
+                    type="text" 
+                    id="command-input" 
+                    placeholder="Enter command..." 
+                    class="flex-1 bg-black/40 border border-cyan-500/30 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-cyan-400 focus:shadow-[0_0_15px_rgba(0,240,255,0.3)] transition"
+                    onkeypress="if(event.key==='Enter') transmitCommand()"
+                >
+                <button onclick="transmitCommand()" class="cmd-btn bg-cyan-500/20 border border-cyan-400 text-cyan-400 px-6 py-2 rounded-lg font-semibold hover:bg-cyan-500/30">
+                    <i class="fas fa-paper-plane mr-2"></i>TRANSMIT
+                </button>
+            </div>
+            
+            <div class="h-10 w-px bg-cyan-500/30"></div>
+            
+            <div class="flex items-center gap-2">
+                <button class="cmd-btn bg-amber-500/20 border border-amber-400 text-amber-400 px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-500/30" onclick="quickCommand('Safe Mode')">
+                    Safe Mode
+                </button>
+                <button class="cmd-btn bg-cyan-500/20 border border-cyan-400 text-cyan-400 px-4 py-2 rounded-lg text-sm font-medium hover:bg-cyan-500/30" onclick="quickCommand('High-Gain Antenna')">
+                    HGA
+                </button>
+                <button class="cmd-btn bg-green-500/20 border border-green-400 text-green-400 px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-500/30" onclick="quickCommand('Trajectory Correction')">
+                    TCM
+                </button>
+                <button class="cmd-btn bg-purple-500/20 border border-purple-400 text-purple-400 px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-500/30" onclick="quickCommand('Science Mode')">
+                    Science
+                </button>
+                <button class="cmd-btn bg-red-500/20 border border-red-400 text-red-400 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-500/30" onclick="quickCommand('Emergency Stop')">
+                    ESTOP
+                </button>
+                <button class="cmd-btn bg-gray-500/20 border border-gray-400 text-gray-400 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-500/30" onclick="quickCommand('Status Report')">
+                    Status
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== STARFIELD ====================
+        function createStarfield() {
+            const container = document.getElementById('starfield');
+            for (let i = 0; i < 200; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.width = Math.random() * 2 + 1 + 'px';
+                star.style.height = star.style.width;
+                star.style.animationDelay = Math.random() * 3 + 's';
+                container.appendChild(star);
+            }
+        }
+        createStarfield();
+
+        // ==================== CLOCK & SIGNAL DELAY ====================
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('utc-clock').textContent = now.toISOString().substr(11, 8);
+            
+            // Update signal delay with slight variation
+            const baseDelay = 862; // seconds
+            const variation = Math.floor(Math.random() * 5) - 2;
+            const totalSeconds = baseDelay + variation;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            document.getElementById('signal-delay').textContent = `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // ==================== LEAFLET MAP ====================
+        let map, trajectoryLine, probeMarker;
+        
+        function initMap() {
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([20, 0], 2);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(map);
+            
+            // Earth marker
+            const earthIcon = L.divIcon({
+                className: 'custom-marker',
+                html: '<div style="width:20px;height:20px;background:#4a90d9;border-radius:50%;box-shadow:0 0 20px #4a90d9;"></div>',
+                iconSize: [20, 20]
+            });
+            L.marker([0, 0], {icon: earthIcon}).addTo(map).bindPopup('Earth');
+            
+            // Mars marker
+            const marsIcon = L.divIcon({
+                className: 'custom-marker',
+                html: '<div style="width:18px;height:18px;background:#c1440e;border-radius:50%;box-shadow:0 0 20px #c1440e;"></div>',
+                iconSize: [18, 18]
+            });
+            L.marker([15, 60], {icon: marsIcon}).addTo(map).bindPopup('Mars');
+            
+            // Transfer orbit path (simplified elliptical arc)
+            const orbitPoints = [];
+            for (let i = 0; i <= 100; i++) {
+                const t = i / 100;
+                const lat = 15 * Math.sin(t * Math.PI);
+                const lng = 60 * t;
+                orbitPoints.push([lat, lng]);
+            }
+            
+            trajectoryLine = L.polyline(orbitPoints, {
+                color: '#00f0ff',
+                weight: 2,
+                opacity: 0.8,
+                dashArray: '5, 5'
+            }).addTo(map);
+            
+            // Probe marker (animated position)
+            const probeIcon = L.divIcon({
+                className: 'custom-marker',
+                html: '<div style="width:12px;height:12px;background:#39ff14;border-radius:50%;box-shadow:0 0 15px #39ff14;animation:pulse 1.5s infinite;"></div>',
+                iconSize: [12, 12]
+            });
+            probeMarker = L.marker([7.5, 30], {icon: probeIcon}).addTo(map).bindPopup('ORION-9 Probe');
+            
+            // Animate probe
+            let probeProgress = 0.5;
+            setInterval(() => {
+                probeProgress += 0.001;
+                if (probeProgress > 1) probeProgress = 0;
+                const idx = Math.floor(probeProgress * 100);
+                if (orbitPoints[idx]) {
+                    probeMarker.setLatLng(orbitPoints[idx]);
+                }
+            }, 100);
+        }
+
+        // ==================== GAUGES (Chart.js) ====================
+        const gaugeOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '75%',
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false }
+            },
+            animation: { duration: 500 }
+        };
+
+        let fuelGauge, velocityGauge, distanceGauge, tempGauge;
+
+        function initGauges() {
+            // Fuel Gauge
+            const fuelCtx = document.getElementById('gauge-fuel').getContext('2d');
+            fuelGauge = new Chart(fuelCtx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [78.3, 21.7],
+                        backgroundColor: ['#39ff14', 'rgba(57, 255, 20, 0.1)'],
+                        borderWidth: 0
+                    }]
+                },
+                options: gaugeOptions
+            });
+
+            // Velocity Gauge
+            const velCtx = document.getElementById('gauge-velocity').getContext('2d');
+            velocityGauge = new Chart(velCtx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [28.4, 71.6],
+                        backgroundColor: ['#00f0ff', 'rgba(0, 240, 255, 0.1)'],
+                        borderWidth: 0
+                    }]
+                },
+                options: gaugeOptions
+            });
+
+            // Distance Gauge
+            const distCtx = document.getElementById('gauge-distance').getContext('2d');
+            distanceGauge = new Chart(distCtx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [1.847, 0.623],
+                        backgroundColor: ['#ffaa00', 'rgba(255, 170, 0, 0.1)'],
+                        borderWidth: 0
+                    }]
+                },
+                options: gaugeOptions
+            });
+
+            // Temp Gauge
+            const tempCtx = document.getElementById('gauge-temp').getContext('2d');
+            tempGauge = new Chart(tempCtx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [342, 158],
+                        backgroundColor: ['#ff5555', 'rgba(255, 85, 85, 0.1)'],
+                        borderWidth: 0
+                    }]
+                },
+                options: gaugeOptions
+            });
+        }
+
+        // Update gauges with random walk
+        function updateGauges() {
+            const fuelVal = 78.3 + (Math.random() - 0.5) * 0.5;
+            fuelGauge.data.datasets[0].data = [fuelVal, 100 - fuelVal];
+            fuelGauge.update('none');
+
+            const velVal = 28.4 + (Math.random() - 0.5) * 0.2;
+            velocityGauge.data.datasets[0].data = [velVal, 50 - velVal];
+            velocityGauge.update('none');
+
+            const distVal = 1.847 + (Math.random() - 0.5) * 0.001;
+            distanceGauge.data.datasets[0].data = [distVal, 3 - distVal];
+            distanceGauge.update('none');
+
+            const tempVal = 342 + (Math.random() - 0.5) * 3;
+            tempGauge.data.datasets[0].data = [tempVal, 500 - tempVal];
+            tempGauge.update('none');
+        }
+        setInterval(updateGauges, 800);
+
+        // ==================== LINE CHARTS ====================
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: { display: false },
+                y: {
+                    display: true,
+                    grid: { color: 'rgba(0, 240, 255, 0.1)' },
+                    ticks: { color: '#888', font: { size: 10 } }
+                }
+            },
+            elements: {
+                point: { radius: 0 },
+                line: { tension: 0.4 }
+            },
+            animation: { duration: 0 }
+        };
+
+        let signalChart, solarChart, batteryChart;
+        const maxDataPoints = 50;
+
+        function createLineChart(ctx, color, label) {
+            const initialData = Array(maxDataPoints).fill(0).map(() => 50 + Math.random() * 20);
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        label: label,
+                        data: initialData,
+                        borderColor: color,
+                        backgroundColor: color + '20',
+                        fill: true,
+                        borderWidth: 2
+                    }]
+                },
+                options: chartOptions
+            });
+        }
+
+        function initLineCharts() {
+            signalChart = createLineChart(
+                document.getElementById('chart-signal').getContext('2d'),
+                '#00f0ff',
+                'Signal Quality'
+            );
+            
+            solarChart = createLineChart(
+                document.getElementById('chart-solar').getContext('2d'),
+                '#ffaa00',
+                'Solar Power'
+            );
+            
+            batteryChart = createLineChart(
+                document.getElementById('chart-battery').getContext('2d'),
+                '#39ff14',
+                'Battery SOC'
+            );
+        }
+
+        function updateLineCharts() {
+            // Signal Quality: 85-95%
+            const signalVal = 90 + (Math.random() - 0.5) * 10;
+            signalChart.data.datasets[0].data.shift();
+            signalChart.data.datasets[0].data.push(signalVal);
+            signalChart.update('none');
+
+            // Solar Power: 4.0-4.5 kW
+            const solarVal = 4.2 + (Math.random() - 0.5) * 0.5;
+            solarChart.data.datasets[0].data.shift();
+            solarChart.data.datasets[0].data.push(solarVal);
+            solarChart.update('none');
+
+            // Battery SOC: 96-100%
+            const batteryVal = 98 + (Math.random() - 0.5) * 4;
+            batteryChart.data.datasets[0].data.shift();
+            batteryChart.data.datasets[0].data.push(batteryVal);
+            batteryChart.update('none');
+        }
+        setInterval(updateLineCharts, 800);
+
+        // ==================== EVENT LOG ====================
+        const eventMessages = [
+            { msg: 'Telemetry packet received - T+142:23:17', type: 'info' },
+            { msg: 'Star tracker A: lock acquired', type: 'success' },
+            { msg: 'Solar array output: 4.23 kW', type: 'info' },
+            { msg: 'Battery charge cycle completed', type: 'success' },
+            { msg: 'Uplink command queue: 0 pending', type: 'info' },
+            { msg: 'Thermal management: radiator efficiency 94%', type: 'info' },
+            { msg: 'Attitude hold: nominal', type: 'success' },
+            { msg: 'Doppler tracking: active', type: 'info' },
+            { msg: 'Deep space network: connected', type: 'success' },
+            { msg: 'Science payload: standby mode', type: 'info' },
+            { msg: 'Propulsion system: pressurized', type: 'info' },
+            { msg: 'Life support: all parameters nominal', type: 'success' }
+        ];
+
+        function addEvent(message, type = 'info') {
+            const log = document.getElementById('event-log');
+            const time = new Date().toISOString().substr(11, 8);
+            const colors = {
+                info: 'text-cyan-400',
+                success: 'text-green-400',
+                warning: 'text-amber-400',
+                error: 'text-red-400'
+            };
+            const line = document.createElement('div');
+            line.className = 'terminal-line';
+            line.innerHTML = `<span class="text-gray-500">[${time}]</span> <span class="${colors[type]}">${message}</span>`;
+            log.appendChild(line);
+            log.scrollTop = log.scrollHeight;
+            
+            // Keep only last 50 events
+            while (log.children.length > 50) {
+                log.removeChild(log.firstChild);
+            }
+        }
+
+        // Initialize event log
+        eventMessages.forEach(e => addEvent(e.msg, e.type));
+        
+        // Random events
+        setInterval(() => {
+            if (Math.random() > 0.7) {
+                const evt = eventMessages[Math.floor(Math.random() * eventMessages.length)];
+                addEvent(evt.msg, evt.type);
+            }
+        }, 3000);
+
+        // ==================== COMMANDS ====================
+        function transmitCommand() {
+            const input = document.getElementById('command-input');
+            const cmd = input.value.trim();
+            if (!cmd) return;
+            
+            addEvent(`Command sent: "${cmd}"`, 'info');
+            input.value = '';
+            
+            setTimeout(() => {
+                addEvent(`Command "${cmd}" acknowledged`, 'success');
+                showToast(`Command transmitted: ${cmd}`, 'success');
+            }, 15000); // Signal delay simulation
+        }
+
+        function quickCommand(cmd) {
+            addEvent(`Quick command: ${cmd}`, 'info');
+            showToast(`Executing: ${cmd}`, 'info');
+            
+            const responses = {
+                'Safe Mode': 'Safe mode activated. Non-essential systems powered down.',
+                'High-Gain Antenna': 'HGA repositioning to track Earth.',
+                'Trajectory Correction': 'TCM burn calculated. Awaiting confirmation.',
+                'Science Mode': 'Science instruments powered. Observation mode active.',
+                'Emergency Stop': 'EMERGENCY: All systems safe state. Manual override required.',
+                'Status Report': 'Full status dump requested. Check telemetry log.'
+            };
+            
+            setTimeout(() => {
+                addEvent(responses[cmd] || 'Command executed', 'success');
+            }, 15000);
+        }
+
+        // ==================== TOAST NOTIFICATIONS ====================
+        function showToast(message, type) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                info: 'border-cyan-400 text-cyan-400',
+                success: 'border-green-400 text-green-400',
+                warning: 'border-amber-400 text-amber-400',
+                error: 'border-red-400 text-red-400'
+            };
+            
+            toast.className = `toast glass-panel ${colors[type]} border-l-4`;
+            toast.innerHTML = message;
+            container.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // ==================== MODAL ====================
+        function openModal(title, content) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-body').innerHTML = content;
+            document.getElementById('modal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('show');
+        }
+
+        // Close modal on backdrop click
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') closeModal();
+        });
+
+        // ==================== INITIALIZATION ====================
+        window.addEventListener('load', () => {
+            initMap();
+            initGauges();
+            initLineCharts();
+            
+            // Hide loader
+            setTimeout(() => {
+                const loader = document.getElementById('loader');
+                loader.style.opacity = '0';
+                setTimeout(() => loader.remove(), 500);
+            }, 1500);
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+</html>
