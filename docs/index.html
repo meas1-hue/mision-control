@@ -389,12 +389,13 @@
                 <div>
                     <label class="block text-xs text-gray-400 uppercase mb-2 font-semibold">Base URL</label>
                     <input type="url" id="setup-url" class="input-field" placeholder="http://192.168.1.100:8000" value="https://kali.tail000dad.ts.net">
-                    <p class="text-[10px] text-gray-500 mt-1">Your PC's local IP + port, or ngrok tunnel URL</p>
+                    <p class="text-[10px] text-gray-500 mt-1">Tailscale Funnel or local IP + port</p>
                 </div>
                 
                 <div>
-                    <label class="block text-xs text-gray-400 uppercase mb-2 font-semibold">API Key (optional)</label>
-                    <input type="password" id="setup-key" class="input-field" placeholder="Bearer token" value="8a9aaede391a8178fa5df08f53146c898907090ad4b6e6cd">
+                    <label class="block text-xs text-gray-400 uppercase mb-2 font-semibold">Gateway Password</label>
+                    <input type="password" id="setup-password" class="input-field" placeholder="Enter gateway password">
+                    <p class="text-[10px] text-gray-500 mt-1">Password for gateway authentication</p>
                 </div>
                 
                 <div id="test-result" class="hidden"></div>
@@ -411,7 +412,7 @@
                 <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-400/30">
                     <p class="text-[10px] text-amber-300">
                         <i class="fas fa-exclamation-triangle mr-1"></i>
-                        <strong>Security:</strong> Use only on trusted local networks or secure ngrok tunnels. Never expose API keys publicly.
+                        <strong>Security:</strong> Use only on trusted networks. Never share your gateway password.
                     </p>
                 </div>
                 
@@ -784,7 +785,7 @@
             connectBtn.disabled = true;
 
             API.base = url;
-            API.apiKey = document.getElementById('setup-key').value.trim();
+            API.apiKey = document.getElementById('setup-password').value.trim();
 
             const endpointsToTry = [API.health, API.agents, '/api/status', '/health'];
             let lastError = null;
@@ -835,15 +836,15 @@
 
         function connectAndLoad() {
             const url = document.getElementById('setup-url').value.trim();
-            const key = document.getElementById('setup-key').value.trim();
+            const password = document.getElementById('setup-password').value.trim();
             
             if (!url) return;
             
             API.base = url;
-            API.apiKey = key;
+            API.apiKey = password;
             
             localStorage.setItem('openclawBaseUrl', url);
-            localStorage.setItem('openclawApiKey', key);
+            localStorage.setItem('openclawApiKey', password);
             
             document.getElementById('setup-screen').classList.add('hidden');
             document.getElementById('dashboard').classList.remove('hidden');
@@ -857,7 +858,7 @@
             
             if (API.base) {
                 document.getElementById('setup-url').value = API.base;
-                document.getElementById('setup-key').value = API.apiKey;
+                document.getElementById('setup-password').value = API.apiKey || '';
             }
             
             stopPolling();
